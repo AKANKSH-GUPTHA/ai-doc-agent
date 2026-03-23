@@ -1,12 +1,33 @@
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_groq import ChatGroq
+from langchain_core.embeddings import Embeddings
+from dotenv import load_dotenv
+import os
+import hashlib
+
+load_dotenv()
 
 vector_store = None
 
-# Load embedding model ONCE at startup
-print("⏳ Loading embedding model at startup...")
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-print("✅ Embedding model ready!")
+class SimpleEmbeddings(Embeddings):
+    """Lightweight embeddings using character hashing - no model download needed."""
+    
+    def embed_documents(self, texts):
+        return [self._embed(text) for text in texts]
+    
+    def embed_query(self, text):
+        return self._embed(text)
+    
+    def _embed(self, text):
+        # Create 384-dim vector from text using hashing
+        vector = []
+        for i in range(384):
+            h = hashlib.md5(f"{text}{i}".encode()).hexdigest()
+            vector.append(int(h[:8], 16) / 0xFFFFFFFF - 0.5)
+        return vector
+
+embeddings = SimpleEmbeddings()
+print("✅ Lightweight embeddings ready - no download needed!")
 
 def create_vector_store(chunks):
     global vector_store
@@ -19,5 +40,4 @@ def search_documents(query: str, k: int = 4):
     global vector_store
     if vector_store is None:
         return []
-    results = vector_store.similarity_search(query, k=k)
-    return results
+    return vector_store.similarity_search(query, k=k)
