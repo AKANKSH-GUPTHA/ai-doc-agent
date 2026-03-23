@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.pdf_reader import load_and_chunk_pdf
 from app.vector_store import create_vector_store, search_documents
 from app.llm import answer_question
+from app.agent import run_agent
 import shutil
 import os
 
@@ -38,19 +39,26 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.post("/ask")
 def ask_question(question: str):
-    """Ask a question about the uploaded document"""
-
-    # Step 1: Find relevant chunks using vector search
+    """Ask a question — uses RAG + LLM"""
     relevant_chunks = search_documents(question, k=4)
-
     if not relevant_chunks:
         return {"answer": "Please upload a document first!"}
-
-    # Step 2: Send chunks + question to LLM
     answer = answer_question(question, relevant_chunks)
-
     return {
         "question": question,
         "answer": answer,
         "sources_used": len(relevant_chunks)
+    }
+
+@app.post("/agent")
+def agent_query(query: str):
+    """
+    Agentic endpoint — AI decides which tool to use.
+    Try: 'summarize this document' or 'what are the key skills?'
+    """
+    result = run_agent(query)
+    return {
+        "query": query,
+        "answer": result,
+        "mode": "agentic"
     }
