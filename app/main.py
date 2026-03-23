@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.pdf_reader import load_and_chunk_pdf
 from app.vector_store import create_vector_store, search_documents
 from app.llm import answer_question
+from app.benchmark import run_benchmark
 from app.agent import run_agent
 import shutil
 import os
@@ -61,4 +62,19 @@ def agent_query(query: str):
         "query": query,
         "answer": result,
         "mode": "agentic"
+    }
+
+@app.post("/benchmark")
+def benchmark():
+    """Run RAGAS benchmark on the uploaded document"""
+    scores = run_benchmark()
+    if not scores:
+        return {"error": "Please upload a document first!"}
+    return {
+        "message": "Benchmark complete!",
+        "scores": scores,
+        "explanation": {
+            "faithfulness": "How grounded the answers are in the document (1.0 = perfect)",
+            "answer_relevancy": "How relevant the answers are to the questions (1.0 = perfect)"
+        }
     }
